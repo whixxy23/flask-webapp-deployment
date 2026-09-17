@@ -1,8 +1,10 @@
 import os
 import psycopg2
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request, redirect, url_for, session
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
+app.secret_key = os.environ["SECRET_KEY"]
 
 DB_HOST = os.environ["DB_HOST"]
 DB_NAME = os.environ["DB_NAME"]
@@ -31,21 +33,108 @@ def home():
     cur.close()
     conn.close()
 
+    user = session.get("username")
+    auth_links = (
+        f'Logged in as <strong>{user}</strong> | '
+        f'<a href="/dashboard">Dashboard</a> | <a href="/logout">Log out</a>'
+        if user else
+        '<a href="/register">Register</a> | <a href="/login">Log in</a>'
+    )
+
     return f"""
     <html>
-    <head><title>Module 3 — Live Web App</title></head>
-    <body style="font-family: sans-serif; text-align:center; margin-top:100px;">
-        <h1>Module 3 — Live Web App</h1>
+    <head><title>Capstone — Live Web App</title></head>
+    <body style="font-family: sans-serif; text-align:center; margin-top:80px;">
+        <h1>Cloud &amp; DevOps Capstone</h1>
         <p>This page has been visited <strong>{count}</strong> times.</p>
-        <p>Deployed on AWS EC2, backed by an RDS PostgreSQL database.</p>
+        <p>{auth_links}</p>
     </body>
     </html>
     """
 
 
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        username = request.form["username"]
+        password_hash = generate_password_hash(request.form["password"])
+
+        conn = get_connection()
+        cur = conn.cursor()
+        try:
+            cur.execute(
+                "INSERT INTO users (username, password_hash) VALUES (%s, %s)",
+                (username, password_hash),
+            )
+            conn.commit()
+        except psycopg2.errors.UniqueViolation:
+            conn.rollback()
+            return "Username already taken", 400
+        finally:
+            cur.close()
+            conn.close()
+
+        return redirect(url_for("login"))
+
+    return """
+    <form method="post" style="font-family: sans-serif; text-align:center; margin-top:80px;">
+        <h2>Register</h2>
+        <input name="username" placeholder="username" required><br><br>
+        <input name="password" type="password" placeholder="password" required><br><br>
+        <button type="submit">Register</button>
+    </form>
+    """
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form["username"]
+
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT password_hash FROM users WHERE username = %s", (username,))
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if row and check_password_hash(row[0], request.form["password"]):
+            session["username"] = username
+            return redirect(url_for("home"))
+
+        return "Invalid credentials", 401
+
+    return """
+    <form method="post" style="font-family: sans-serif; text-align:center; margin-top:80px;">
+        <h2>Log in</h2>
+        <input name="username" placeholder="username" required><br><br>
+        <input name="password" type="password" placeholder="password" required><br><br>
+        <button type="submit">Log in</button>
+    </form>
+    """
+
+
+@app.route("/logout")
+def logout():
+    session.pop("username", None)
+    return redirect(url_for("home"))
+
+
+@app.route("/dashboard")
+def dashboard():
+    if "username" not in session:
+        return redirect(url_for("login"))
+    return f"""
+    <div style="font-family: sans-serif; text-align:center; margin-top:80px;">
+        <h1>Welcome, {session['username']}</h1>
+        <p>This is a protected route — only reachable when logged in.</p>
+        <a href="/">Home</a>
+    </div>
+    """
+
+
 @app.route("/health")
 def health():
-    """Simple health check endpoint — useful for monitoring."""
     return jsonify(status="ok")
 
 

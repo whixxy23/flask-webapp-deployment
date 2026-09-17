@@ -10,8 +10,6 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
-    # Spins up a real Postgres instance for the duration of this job,
-    # mirroring the production database this app actually talks to.
     services:
       postgres:
         image: postgres:16
@@ -27,14 +25,15 @@ jobs:
           --health-timeout=5s
           --health-retries=5
 
-    # These are plain values for the throwaway test DB above — NOT secrets,
-    # and NOT bash syntax. They must match the postgres: service block exactly.
     env:
       DB_HOST: localhost
       DB_NAME: webapp
       DB_USER: postgres
       DB_PASSWORD: postgres
       DB_PORT: 5432
+      # Fine to hardcode here — this only signs test-session cookies
+      # inside a throwaway CI job, never used in production.
+      SECRET_KEY: test-secret-key-not-for-production
 
     steps:
       - name: Checkout code
@@ -59,7 +58,7 @@ jobs:
         run: pytest -v
 
       - name: Build Docker image
-        run: docker build -t module5-web:${{ github.sha }} .
+        run: docker build -t capstone-web:${{ github.sha }} .
 
   deploy:
     needs: build-and-test
@@ -70,18 +69,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # DB_HOST, DB_NAME, and DB_PORT are already hardcoded directly in
-      # docker-compose.yml (DB_HOST: db, DB_NAME: webapp, DB_PORT: 5432) —
-      # they're structural, not secret, so they don't belong here.
-      # Only DB_USER and DB_PASSWORD are real secrets that need to exist
-      # under Settings → Secrets and variables → Actions.
+      # DB_HOST now points at the real RDS endpoint, not the local 'db'
+      # container — this is what makes production actually use the
+      # managed database.
       - name: Deploy with Docker Compose
         run: |
           docker compose down
           docker compose up -d --build
         env:
+          DB_HOST: ${{ secrets.DB_HOST }}
           DB_USER: ${{ secrets.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
 
       - name: Post-deploy health check
         run: |
