@@ -138,7 +138,7 @@ The PostgreSQL data is stored in a Docker named volume rather than inside the ap
 * Containers package applications and their dependencies into reproducible environments.
 * Docker Compose makes running multi-container applications much simpler.
 * Containers can communicate through Docker's internal networking.
-* Persistent application data should not depend on a container's writable filesystem.
+* Persistent applications data should not depend on a container's writable filesystem.
 * Environment variables provide a cleaner way to configure containers without hardcoding secrets.
 
 ### Module 4 Outcome
