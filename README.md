@@ -1,146 +1,25 @@
-# Docker & Containerization — Module 4
+## CI/CD Pipeline — Module 5
 
-Containerized a Flask web application using Docker and Docker Compose, with PostgreSQL running as a separate container.
+**Flow:** GitHub → Build → Test → Docker → Deploy → Monitor
 
-**Flow:** Application Code → Dockerfile → Image → Container → Docker Compose → Running Application
+### DevOps concepts applied
+- **Continuous Integration (CI):** every push/PR to `main` automatically runs tests and validates the Docker build — catching breakage before it reaches the server, not after.
+- **Continuous Deployment (CD):** a passing build on `main` automatically deploys, with no manual server login required.
+- **Trunk-based workflow:** all changes land on `main`; the pipeline itself is the gate, not a separate release branch.
 
----
+### Why a self-hosted runner instead of SSH deploy
+The EC2 security group's SSH rule is scoped to my own IP (from Module 2). A GitHub-hosted runner deploying via SSH would need either a broader inbound rule or a dynamic IP-allowlisting step — both add attack surface or complexity.
 
-## What I Built
+Instead, the EC2 instance runs as a **self-hosted GitHub Actions runner**. It makes an *outbound* connection to GitHub to pick up jobs, so no inbound firewall change was needed at all — the Module 2 hardening stays exactly as it was.
 
-* Created a Dockerfile for the Flask application.
-* Built a custom Docker image for the web application.
-* Ran the Flask app inside a Docker container.
-* Added PostgreSQL as a separate container.
-* Connected the application and database through a Docker Compose network.
-* Used a named Docker volume to persist PostgreSQL data.
-* Used environment variables for database configuration.
-* Added `.dockerignore` to keep unnecessary files out of the image.
+### Pipeline stages
+1. **Build & Test** (GitHub-hosted runner) — installs dependencies, spins up a real Postgres service container, loads the schema, runs `pytest`, and validates `docker build` succeeds.
+2. **Deploy** (self-hosted runner, only on `main`) — runs `docker compose up -d --build` directly on the EC2 instance using the just-pushed code.
+3. **Monitor** — a post-deploy `curl` against `/health` fails the pipeline if the app didn't come back up correctly; container logs are dumped into the workflow run regardless of outcome (`if: always()`), giving basic observability without a separate monitoring stack.
 
----
+### Environment management
+- Test environment: Postgres service container with throwaway credentials, defined inline in the workflow — isolated from production.
+- Production environment: `DB_USER`/`DB_PASSWORD` stored as GitHub Actions secrets, injected into `docker compose up` at deploy time — never written to any file in the repo.
 
-## Docker Architecture
-
-```text
-                    Docker Compose
-                         │
-          ┌──────────────┴──────────────┐
-          │                             │
-     Flask Web App                 PostgreSQL
-      Container                    Container
-          │                             │
-          └──────── Docker Network ─────┘
-                         │
-                  PostgreSQL Volume
-```
-
-The Flask container communicates with PostgreSQL using the Compose service name `db` rather than `localhost`.
-
----
-
-## Key Docker Concepts Practiced
-
-### Images
-
-Built a custom image from the application's `Dockerfile`.
-
-### Containers
-
-Ran the Flask application and PostgreSQL database as isolated containers.
-
-### Networking
-
-Docker Compose automatically created a network allowing the containers to communicate with each other.
-
-### Volumes
-
-A named volume was attached to PostgreSQL so database data survives container recreation.
-
-### Environment Variables
-
-Database configuration is supplied through environment variables rather than being hardcoded into the application.
-
----
-
-## Useful Commands
-
-```bash
-# Build the image
-docker compose build
-
-# Start the containers
-docker compose up -d
-
-# Check running containers
-docker compose ps
-
-# View logs
-docker compose logs
-
-# Stop the application
-docker compose down
-
-# Stop containers without removing the database volume
-docker compose down
-
-# Inspect volumes
-docker volume ls
-```
-
----
-
-## Verification
-
-The application was tested from the browser after starting the Compose stack.
-
-Container status:
-
-```bash
-docker compose ps
-```
-
-Application logs:
-
-```bash
-docker compose logs web
-```
-
-Database logs:
-
-```bash
-docker compose logs db
-```
-
-The PostgreSQL data is stored in a Docker named volume rather than inside the application container.
-
----
-
-## Project Structure
-
-```text
-.
-├── app.py
-├── requirements.txt
-├── Dockerfile
-├── docker-compose.yml
-├── .dockerignore
-├── .env.example
-├── .gitignore
-└── README.md
-```
-
-> `.env` contains local database credentials and is excluded from Git.
-
----
-
-## Key Learnings
-
-* Containers package applications and their dependencies into reproducible environments.
-* Docker Compose makes running multi-container applications much simpler.
-* Containers can communicate through Docker's internal networking.
-* Persistent application data should not depend on a container's writable filesystem.
-* Environment variables provide a cleaner way to configure containers without hardcoding secrets.
-
-### Module 4 Outcome
-
-The Flask application that was previously deployed directly on AWS EC2 in Module 3 was successfully packaged and run as a containerized application with PostgreSQL using Docker Compose.
+### Result
+`[paste a screenshot of a green pipeline run + the deployed app confirming the change]`
