@@ -1,40 +1,195 @@
-## CI/CD Pipeline — Module 5
+# Cloud & DevOps Capstone
 
-**Flow:** GitHub → Build → Test → Docker → Deploy → Monitor
+A Flask web application deployed on AWS with Docker, GitHub Actions, Nginx, and Amazon RDS PostgreSQL.
 
-### DevOps concepts applied
-- **Continuous Integration (CI):** every push/PR to `main` automatically runs tests and validates the Docker build — catching breakage before it reaches the server, not after.
-- **Continuous Deployment (CD):** a passing build on `main` automatically deploys, with no manual server login required.
-- **Trunk-based workflow:** all changes land on `main`; the pipeline itself is the gate, not a separate release branch.
+This capstone brings together the cloud, containerization, CI/CD, authentication, and monitoring work completed throughout the previous modules.
 
-### Why a self-hosted runner instead of SSH deploy
-The EC2 security group's SSH rule is scoped to my own IP (from Module 2). A GitHub-hosted runner deploying via SSH would need either a broader inbound rule or a dynamic IP-allowlisting step — both add attack surface or complexity.
+---
 
-Instead, the EC2 instance runs as a **self-hosted GitHub Actions runner**. It makes an *outbound* connection to GitHub to pick up jobs, so no inbound firewall change was needed at all — the Module 2 hardening stays exactly as it was.
+## 🚀 Project Overview
 
-### Pipeline stages
-1. **Build & Test** (GitHub-hosted runner) — installs dependencies, spins up a real Postgres service container, loads the schema, runs `pytest`, and validates `docker build` succeeds.
-2. **Deploy** (self-hosted runner, only on `main`) — runs `docker compose up -d --build` directly on the EC2 instance using the just-pushed code.
-3. **Monitor** — a post-deploy `curl` against `/health` fails the pipeline if the app didn't come back up correctly; container logs are dumped into the workflow run regardless of outcome (`if: always()`), giving basic observability without a separate monitoring stack.
+The application includes:
 
-### Environment management
-- Test environment: Postgres service container with throwaway credentials, defined inline in the workflow — isolated from production.
-- Production environment: `DB_USER`/`DB_PASSWORD` stored as GitHub Actions secrets, injected into `docker compose up` at deploy time — never written to any file in the repo.
+* User registration and login
+* Secure password hashing
+* Session-based authentication
+* Protected dashboard
+* PostgreSQL database
+* Docker containerization
+* AWS EC2 deployment
+* Amazon RDS PostgreSQL
+* Nginx reverse proxy
+* Automated CI/CD with GitHub Actions
+* Application health checks
+* Cloud monitoring
 
-## Results/Screenshots
+---
 
-**Self-hosted runner registered and online**
-![GitHub Actions runner](screenshots/actions-runner.png)
+## 🏗️ Architecture
 
-**Runner service running on EC2**
-![Runner service status on EC2](screenshots/ec2-runner.png)
+```text
+                    Internet
+                       │
+                       ▼
+                    Nginx
+                       │
+                       ▼
+              Flask Docker Container
+                       │
+                       │ PostgreSQL
+                       ▼
+                Amazon RDS
+                PostgreSQL
 
-**Containers running on EC2 after deploy**
-![Docker containers on EC2](screenshots/ec2-containers.png)
 
-**Pipeline stages passing**
-![CI/CD jobs succeeding](screenshots/success-jobs.png)
+GitHub
+   │
+   ▼
+GitHub Actions
+   │
+   ├── Test
+   ├── Build Docker Image
+   └── Deploy
+          │
+          ▼
+     EC2 Self-hosted
+        Runner
+```
 
-**Full workflow run, green end to end**
-![Successful workflow run](screenshots/success-workflow.png)
+**Production database:** Amazon RDS PostgreSQL
+**Application runtime:** Docker container on EC2
 
+---
+
+## ⚙️ Technology Stack
+
+| Area               | Technology              |
+| ------------------ | ----------------------- |
+| Application        | Flask / Python          |
+| Database           | PostgreSQL              |
+| Cloud              | AWS                     |
+| Compute            | EC2                     |
+| Database Hosting   | Amazon RDS              |
+| Web Server         | Nginx                   |
+| Application Server | Gunicorn                |
+| Containerization   | Docker / Docker Compose |
+| CI/CD              | GitHub Actions          |
+| Monitoring         | CloudWatch              |
+| Version Control    | Git / GitHub            |
+
+---
+
+## 🔄 CI/CD Pipeline
+
+```text
+Git Push
+   ↓
+GitHub Actions
+   ↓
+Install Dependencies
+   ↓
+Run Tests
+   ↓
+Build Docker Image
+   ↓
+Deploy to EC2
+   ↓
+Docker Compose
+   ↓
+Health Check
+```
+
+The deployment job runs on a self-hosted GitHub Actions runner hosted on the EC2 instance.
+
+Production secrets such as database credentials and the Flask secret key are provided through GitHub Actions Secrets.
+
+---
+
+## 🔐 Authentication
+
+The application provides:
+
+* Registration
+* Login
+* Logout
+* Protected routes
+* Session-based authentication
+* Password hashing with Werkzeug
+
+User credentials are stored in Amazon RDS PostgreSQL.
+
+---
+
+## 🩺 Health Check
+
+The application exposes:
+
+```text
+/health
+```
+
+A successful deployment returns:
+
+```json
+{"status":"ok"}
+```
+
+The CI/CD pipeline performs a post-deployment health check to verify that the application is running correctly.
+
+---
+
+## 📸 Project Evidence
+
+### 1. Live Application
+
+![Live Application](screenshots/live-application.png)
+![Live Application](screenshots/live-application2.png)
+
+Authenticated application running on the deployed AWS environment.
+
+### 2. AWS Infrastructure
+
+![RDS Connection](screenshots/rds-connection.png)
+![EC2 Config](screenshots/ec2-config.png)
+
+EC2 and RDS infrastructure used by the application.
+
+### 3. CI/CD Pipeline
+
+![GitHub Actions](screenshots/github-actions.png)
+
+Successful GitHub Actions build, test, and deployment pipeline.
+
+### 4. Docker & Production Verification
+
+![Production Verification](screenshots/production-verification.png)
+
+Running Flask container, health check, and connection to the RDS database.
+
+---
+
+## 📁 Project Structure
+
+```text
+flask-webapp-deployment/
+├── .github/
+│   └── workflows/
+├── screenshots/
+├── app.py
+├── Dockerfile
+├── docker-compose.yml
+├── schema.sql
+├── test_app.py
+├── requirements.txt
+└── README.md
+```
+
+---
+
+## 🎯 Capstone Outcome
+
+The project demonstrates an end-to-end DevOps workflow:
+
+**Develop → Test → Containerize → Deploy → Monitor**
+
+The final production architecture uses a containerized Flask application on AWS EC2 with Amazon RDS as the managed PostgreSQL database.
