@@ -21,5 +21,20 @@ Instead, the EC2 instance runs as a **self-hosted GitHub Actions runner**. It ma
 - Test environment: Postgres service container with throwaway credentials, defined inline in the workflow — isolated from production.
 - Production environment: `DB_USER`/`DB_PASSWORD` stored as GitHub Actions secrets, injected into `docker compose up` at deploy time — never written to any file in the repo.
 
-### Result
-`[paste a screenshot of a green pipeline run + the deployed app confirming the change]`
+## Results/Screenshots
+
+**Self-hosted runner registered and online**
+![GitHub Actions runner](screenshots/actions-runner.png)
+
+**Runner service running on EC2**
+![Runner service status on EC2](screenshots/ec2-runner.png)
+
+**Containers running on EC2 after deploy**
+![Docker containers on EC2](screenshots/ec2-containers.png)
+
+**Pipeline stages passing**
+![CI/CD jobs succeeding](screenshots/success-jobs.png)
+
+**Full workflow run, green end to end**
+![Successful workflow run](screenshots/success-workflow.png)
+
